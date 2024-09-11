@@ -3172,19 +3172,19 @@ EXP_ST void init_forkserver(char** argv) {
 
     setsid();
 
-    dup2(dev_null_fd, 1);
+    // dup2(dev_null_fd, 1);
 #ifdef CORE_BENCH
 #else
-    dup2(dev_null_fd, 2);
+    // dup2(dev_null_fd, 2);
 #endif
 
     if (out_file) {
 
-      dup2(dev_null_fd, 0);
+      // dup2(dev_null_fd, 0);
 
     } else {
 
-      dup2(out_fd, 0);
+      // dup2(out_fd, 0);
       close(out_fd);
 
     }
