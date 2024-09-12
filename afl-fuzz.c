@@ -56,6 +56,8 @@
 #include <termios.h>
 #include <dlfcn.h>
 #include <sched.h>
+#include <limits.h>
+#include <libgen.h>
 
 #include <sys/wait.h>
 #include <sys/time.h>
@@ -8971,6 +8973,16 @@ EXP_ST void setup_signal_handlers(void) {
 
 /* Rewrite argv for SaBRe. */
 
+static char* get_self_path(void)
+{
+  char self[PATH_MAX] = { 0 };
+  int nchar = readlink("/proc/self/exe", self, sizeof self);
+  if (nchar < 0)
+    FATAL("Cannot determine self path\n");
+  printf("Self path: %s\n", self);
+  return strdup(self);
+}
+
 static char** get_sbr_argv(char** argv, int argc) {
   char** new_argv = ck_alloc(sizeof(char*) * (argc + 3 + 1));
 
@@ -8978,8 +8990,16 @@ static char** get_sbr_argv(char** argv, int argc) {
 
   new_argv[2] = "--";
   new_argv[1] = sbr_plugin_path;
-  target_path = new_argv[0] = ck_strdup("./sabre");
 
+  char buf[PATH_MAX] = { 0 };
+  char* binpath = get_self_path();
+  strcat(buf, dirname(binpath));
+  strcat(buf, "/sabre");
+  if (access(buf, X_OK) == -1) {
+    FATAL("Binary 'sabre' not found or not executable\nChecked path: %s\n", buf);
+  }
+  target_path = new_argv[0] = buf;
+  free(binpath);
   return new_argv;
 }
 
