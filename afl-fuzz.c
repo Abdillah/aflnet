@@ -353,6 +353,7 @@ enum {
 };
 
 char** use_argv;  /* argument to run the target program. In vanilla AFL, this is a local variable in main. */
+int use_argc;  /* argument to run the target program. In vanilla AFL, this is a local variable in main. */
 /* add these declarations here so we can call these functions earlier */
 static u8 run_target(char** argv, u32 timeout);
 static inline u32 UR(u32 limit);
@@ -3264,9 +3265,11 @@ EXP_ST void init_forkserver(char** argv) {
   fsrv_st_fd  = st_pipe[0];
 
   if (sbr_mode) {
+    ACTF("Sabre comm ctl %d", sbr_ctl_fd);
     char rsp[1024] = {0};
     char expected[] = "hello from sbr";
     int rc = recv(sbr_ctl_fd, rsp, 1024, 0);
+    ACTF("Got from fork sbr: '%s'", rsp);
     if (strncmp(rsp, expected, sizeof(expected)) != 0 || rc != sizeof(expected))
       PFATAL("sbr recv failed");
 
@@ -3286,6 +3289,7 @@ EXP_ST void init_forkserver(char** argv) {
   setitimer(ITIMER_REAL, &it, NULL);
 
   rlen = read(fsrv_st_fd, &status, 4);
+  ACTF("Got from fork server: '%s'", status);
 
   it.it_value.tv_sec = 0;
   it.it_value.tv_usec = 0;
@@ -9510,12 +9514,21 @@ int main(int argc, char** argv) {
 
   start_time = get_cur_time();
 
-  if (sbr_mode)
+  use_argc = argc - optind;
+  if (sbr_mode) {
     use_argv = get_sbr_argv(argv + optind, argc - optind);
-  else if (qemu_mode)
+    use_argc = argc - optind + 3;
+  } else if (qemu_mode)
     use_argv = get_qemu_argv(argv[0], argv + optind, argc - optind);
   else
     use_argv = argv + optind;
+
+  char* all_use_argv = ck_alloc(sizeof(char) * 512);
+  for (int i = 0; i < use_argc; i++) {
+    sprintf(all_use_argv, "%s %s", all_use_argv, use_argv[i]);
+  }
+  ACTF("Executing: %s", all_use_argv);
+  ck_free(all_use_argv);
 
   perform_dry_run(use_argv);
 
